@@ -19,68 +19,174 @@ An AI agent that answers questions using either direct LLM knowledge or retrieve
 
 ## 🏗️ Architecture
 
+### System Architecture Diagram
+
+```mermaid
+graph TB
+    Client[Client Application]
+    
+    subgraph FastAPI["FastAPI Server (api.py)"]
+        Router[API Router]
+        SessionMgr[Session Manager]
+    end
+    
+    subgraph Agent["RAG Agent"]
+        QueryProcessor[Query Processor]
+        ToolDecision{Tool Calling Decision}
+        DirectAnswer[Direct LLM Answer]
+        DocSearch[Document Search Tool]
+    end
+    
+    subgraph RAGSystem["RAG System (rag_system.py)"]
+        Chunker[Document Chunker<br/>500 words, 50 overlap]
+        Embedder[Embedding Generator<br/>text-embedding-3-large]
+        FAISS[(FAISS Vector Store<br/>3072-dim, L2 distance)]
+        SearchEngine[Semantic Search<br/>Top-K Retrieval]
+    end
+    
+    subgraph Azure["Azure OpenAI Services"]
+        ChatGPT[GPT-4o-mini<br/>Chat Completions]
+        EmbedAPI[text-embedding-3-large<br/>Embeddings API]
+    end
+    
+    subgraph Storage["Data Storage"]
+        Docs[documents/<br/>5 .txt files]
+        Index[rag_index/<br/>FAISS Index]
+        Sessions[In-Memory<br/>Session Store]
+    end
+    
+    Client -->|POST /ask| Router
+    Router --> SessionMgr
+    SessionMgr --> QueryProcessor
+    QueryProcessor --> ToolDecision
+    
+    ToolDecision -->|General Query| DirectAnswer
+    ToolDecision -->|Company Info| DocSearch
+    
+    DirectAnswer --> ChatGPT
+    DocSearch --> SearchEngine
+    
+    SearchEngine --> FAISS
+    FAISS --> SearchEngine
+    SearchEngine -->|Top 3 Chunks| ChatGPT
+    
+    ChatGPT -->|Final Answer| QueryProcessor
+    QueryProcessor -->|Response| Router
+    Router -->|JSON Response| Client
+    
+    Docs -.->|Build Index| Chunker
+    Chunker --> Embedder
+    Embedder --> EmbedAPI
+    EmbedAPI -->|3072-dim vectors| FAISS
+    FAISS -.->|Persist| Index
+    
+    SessionMgr -.->|Store| Sessions
+    
+    style Client fill:#e1f5ff
+    style ChatGPT fill:#fff4e1
+    style EmbedAPI fill:#fff4e1
+    style FAISS fill:#e8f5e9
+    style Docs fill:#f3e5f5
+    style Index fill:#f3e5f5
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                         CLIENT REQUEST                          │
-│                    POST /ask {query, session_id}                │
-└────────────────────────────┬────────────────────────────────────┘
-                             │
-                             ▼
-┌─────────────────────────────────────────────────────────────────┐
-│                         FastAPI Server                          │
-│                          (api.py)                               │
-└────────────────────────────┬────────────────────────────────────┘
-                             │
-                             ▼
-┌─────────────────────────────────────────────────────────────────┐
-│                    RAG Agent (api.py)                           │
-│  ┌──────────────────────────────────────────────────────────┐  │
-│  │  1. Receives query + conversation history                │  │
-│  │  2. Azure OpenAI decides: Answer directly OR search docs │  │
-│  │  3. If search needed → calls search_documents_rag()      │  │
-│  └──────────────────────────────────────────────────────────┘  │
-└────────────────────────────┬────────────────────────────────────┘
-                             │
-                             ▼
-┌─────────────────────────────────────────────────────────────────┐
-│                    RAG System (rag_system.py)                   │
-│  ┌──────────────────────────────────────────────────────────┐  │
-│  │  DocumentChunker → Splits docs into 500-word chunks      │  │
-│  │  EmbeddingGenerator → text-embedding-3-large (3072-dim)  │  │
-│  │  FAISSVectorStore → L2 similarity search                 │  │
-│  │  RAGSystem → Orchestrates search & returns top 3 chunks  │  │
-│  └──────────────────────────────────────────────────────────┘  │
-└────────────────────────────┬────────────────────────────────────┘
-                             │
-                             ▼
-┌─────────────────────────────────────────────────────────────────┐
-│                     Azure OpenAI Services                       │
-│  ┌────────────────────────┐  ┌─────────────────────────────┐   │
-│  │  GPT-4o-mini           │  │  text-embedding-3-large     │   │
-│  │  (Chat Completions)    │  │  (Embeddings)               │   │
-│  └────────────────────────┘  └─────────────────────────────┘   │
-└─────────────────────────────────────────────────────────────────┘
-                             │
-                             ▼
-┌─────────────────────────────────────────────────────────────────┐
-│                         RESPONSE                                │
-│              {answer, source, session_id}                       │
-└─────────────────────────────────────────────────────────────────┘
+
+### Data Flow Diagram
+
+```mermaid
+sequenceDiagram
+    participant C as Client
+    participant API as FastAPI Server
+    participant Agent as RAG Agent
+    participant LLM as Azure GPT-4o-mini
+    participant RAG as RAG System
+    participant FAISS as Vector Store
+    participant Embed as Embedding API
+    
+    Note over C,Embed: Initialization Phase
+    RAG->>FAISS: Load Index from Disk
+    
+    Note over C,Embed: Query Processing
+    C->>API: POST /ask {query, session_id}
+    API->>Agent: Get/Create Session Agent
+    Agent->>Agent: Add to Conversation History
+    
+    Agent->>LLM: Chat Completion + Tools
+    LLM->>LLM: Analyze Query
+    
+    alt General Knowledge Query
+        LLM-->>Agent: Direct Answer
+        Agent->>API: Return Answer
+        API->>C: {answer, source: "llm"}
+    else Company-Specific Query
+        LLM-->>Agent: Tool Call: search_documents()
+        Agent->>RAG: Search(query)
+        RAG->>Embed: Generate Query Embedding
+        Embed-->>RAG: 3072-dim Vector
+        RAG->>FAISS: Similarity Search
+        FAISS-->>RAG: Top 3 Chunks + Scores
+        RAG-->>Agent: Formatted Results
+        Agent->>Agent: Add Tool Response to History
+        Agent->>LLM: Continue with Context
+        LLM-->>Agent: Final Answer with Context
+        Agent->>API: Return Answer
+        API->>C: {answer, source: "documents"}
+    end
+    
+    Note over C,Embed: Session Memory Maintained
+```
+
+### Component Architecture
+
+```mermaid
+graph LR
+    subgraph API["api.py - 300 LOC"]
+        FA[FastAPI App]
+        Models[Pydantic Models]
+        Endpoints[6 API Endpoints]
+        AgentClass[RAGAgent Class]
+    end
+    
+    subgraph RAG["rag_system.py - 280 LOC"]
+        DC[DocumentChunker]
+        EG[EmbeddingGenerator]
+        VS[FAISSVectorStore]
+        RS[RAGSystem]
+    end
+    
+    subgraph Ext["External Services"]
+        AZ[Azure OpenAI]
+        FS[File System]
+    end
+    
+    FA --> AgentClass
+    AgentClass --> RS
+    RS --> DC
+    RS --> EG
+    RS --> VS
+    
+    EG --> AZ
+    AgentClass --> AZ
+    VS --> FS
+    DC --> FS
+    
+    style API fill:#e3f2fd
+    style RAG fill:#f3e5f5
+    style Ext fill:#fff3e0
 ```
 
 ### How It Works
 
-1. **Client** sends a question via REST API
-2. **FastAPI** routes to RAG Agent with session management
-3. **RAG Agent** uses Azure OpenAI's function calling to decide:
-   - Answer directly from LLM knowledge
-   - OR search documents using RAG system
-4. **RAG System** (if triggered):
-   - Converts query to embeddings
-   - Searches FAISS vector store
-   - Returns top 3 relevant document chunks
-5. **Azure OpenAI** generates final answer with context
-6. **Response** returned with answer and source attribution
+1. **Client** sends a question via REST API (`POST /ask`)
+2. **FastAPI** router creates/retrieves session and initializes RAG Agent
+3. **RAG Agent** uses Azure OpenAI's function calling to intelligently decide:
+   - Answer directly from LLM knowledge (general queries)
+   - OR invoke document search tool (company-specific queries)
+4. **RAG System** (if document search triggered):
+   - Converts query to 3072-dimensional embedding
+   - Searches FAISS vector store using L2 similarity
+   - Returns top 3 most relevant document chunks with scores
+5. **Azure OpenAI** generates final answer using retrieved context
+6. **Response** returned as JSON with answer, source attribution, and session ID
 
 ---
 
@@ -415,13 +521,3 @@ Edit `api.py` to modify:
 - Documentation: Auto-generated Swagger UI at `/docs`
 
 ---
-
-## �📝 License
-
-MIT License - Feel free to use for your projects!
-
----
-
-## 🤝 Contributing
-
-Add more documents, improve prompts, or enhance the RAG system - all contributions welcome!
