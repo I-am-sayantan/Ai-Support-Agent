@@ -1,0 +1,367 @@
+TECHNICAL DOCUMENTATION - CloudSync Pro API
+
+=== API OVERVIEW ===
+
+The CloudSync Pro API is a RESTful API that allows developers to programmatically interact with CloudSync Pro services. The API enables file management, user administration, sharing, and advanced automation.
+
+Base URL: https://api.cloudsync.com/v2
+Authentication: OAuth 2.0, API Keys
+Rate Limits: 10,000 requests/hour (Business), 100,000 requests/hour (Enterprise)
+Response Format: JSON
+API Version: 2.0 (current), 1.0 (deprecated, sunset date: Dec 2026)
+
+=== AUTHENTICATION ===
+
+API Key Authentication:
+All API requests require authentication via API key in the header:
+```
+Authorization: Bearer YOUR_API_KEY
+```
+
+Generating API Keys:
+1. Login to CloudSync Pro web dashboard
+2. Navigate to Settings > Developers > API Keys
+3. Click "Generate New Key"
+4. Assign permissions scope
+5. Copy key immediately (shown only once)
+
+API Key Scopes:
+- files.read: Read file metadata and content
+- files.write: Create, update, delete files
+- users.read: Read user information
+- users.write: Manage users
+- sharing.read: View sharing settings
+- sharing.write: Modify sharing permissions
+- admin: Full administrative access
+
+OAuth 2.0 Flow:
+For user-facing applications, use OAuth 2.0:
+1. Redirect user to authorization URL
+2. User grants permissions
+3. Receive authorization code
+4. Exchange code for access token
+5. Use access token for API requests
+6. Refresh token when expired (1-hour lifetime)
+
+Authorization URL:
+```
+GET https://cloudsync.com/oauth/authorize
+  ?client_id=YOUR_CLIENT_ID
+  &redirect_uri=YOUR_REDIRECT_URI
+  &response_type=code
+  &scope=files.read files.write
+```
+
+Token Exchange:
+```
+POST https://cloudsync.com/oauth/token
+Content-Type: application/json
+
+{
+  "grant_type": "authorization_code",
+  "code": "AUTHORIZATION_CODE",
+  "client_id": "YOUR_CLIENT_ID",
+  "client_secret": "YOUR_CLIENT_SECRET",
+  "redirect_uri": "YOUR_REDIRECT_URI"
+}
+```
+
+=== FILE OPERATIONS ===
+
+List Files:
+```
+GET /files/list
+Parameters:
+  - path (string): Folder path (default: root)
+  - recursive (boolean): Include subfolders (default: false)
+  - limit (integer): Max results (default: 100, max: 1000)
+  - offset (integer): Pagination offset (default: 0)
+
+Response:
+{
+  "files": [
+    {
+      "id": "file_abc123",
+      "name": "document.pdf",
+      "path": "/work/document.pdf",
+      "size": 1048576,
+      "modified": "2026-01-10T14:30:00Z",
+      "created": "2026-01-05T09:15:00Z",
+      "type": "file",
+      "mime_type": "application/pdf",
+      "shared": false
+    }
+  ],
+  "has_more": false,
+  "total": 1
+}
+```
+
+Upload File:
+```
+POST /files/upload
+Content-Type: multipart/form-data
+
+Parameters:
+  - file (binary): File data
+  - path (string): Destination path
+  - autorename (boolean): Auto-rename if exists (default: false)
+  - mute (boolean): Suppress notifications (default: false)
+
+Response:
+{
+  "id": "file_xyz789",
+  "name": "uploaded.txt",
+  "path": "/documents/uploaded.txt",
+  "size": 2048,
+  "modified": "2026-01-11T10:00:00Z",
+  "revision": "rev_001"
+}
+```
+
+Download File:
+```
+GET /files/download/{file_id}
+
+Response: Binary file data
+Headers:
+  Content-Type: [mime type]
+  Content-Disposition: attachment; filename="filename.ext"
+  Content-Length: [file size]
+```
+
+Delete File:
+```
+DELETE /files/delete/{file_id}
+
+Response:
+{
+  "deleted": true,
+  "id": "file_abc123",
+  "path": "/old/file.txt"
+}
+```
+
+Create Folder:
+```
+POST /files/create_folder
+Content-Type: application/json
+
+{
+  "path": "/new_folder",
+  "autorename": false
+}
+
+Response:
+{
+  "id": "folder_def456",
+  "path": "/new_folder",
+  "created": "2026-01-11T11:30:00Z"
+}
+```
+
+=== SHARING ===
+
+Create Share Link:
+```
+POST /sharing/create_link
+Content-Type: application/json
+
+{
+  "file_id": "file_abc123",
+  "settings": {
+    "link_password": "optional_password",
+    "expires": "2026-02-11T00:00:00Z",
+    "allow_download": true,
+    "view_only": false
+  }
+}
+
+Response:
+{
+  "url": "https://cloudsync.com/s/abc123xyz",
+  "id": "share_link_789",
+  "expires": "2026-02-11T00:00:00Z"
+}
+```
+
+Share with User:
+```
+POST /sharing/add_member
+Content-Type: application/json
+
+{
+  "file_id": "file_abc123",
+  "email": "user@example.com",
+  "role": "editor",
+  "send_email": true,
+  "message": "Check this out!"
+}
+
+Roles: viewer, editor, admin
+```
+
+List Shared Files:
+```
+GET /sharing/list
+
+Response:
+{
+  "shared_files": [
+    {
+      "file_id": "file_abc123",
+      "name": "shared_doc.pdf",
+      "shared_with": ["user1@example.com", "user2@example.com"],
+      "link": "https://cloudsync.com/s/xyz789"
+    }
+  ]
+}
+```
+
+=== USER MANAGEMENT ===
+
+Get Current User:
+```
+GET /users/me
+
+Response:
+{
+  "id": "user_123",
+  "email": "user@example.com",
+  "name": "John Doe",
+  "account_type": "business",
+  "storage_quota": "unlimited",
+  "storage_used": 53687091200
+}
+```
+
+List Team Members (Admin only):
+```
+GET /users/list
+
+Response:
+{
+  "members": [
+    {
+      "id": "user_456",
+      "email": "member@example.com",
+      "name": "Jane Smith",
+      "role": "member",
+      "status": "active",
+      "joined": "2025-06-15T00:00:00Z"
+    }
+  ]
+}
+```
+
+=== WEBHOOKS ===
+
+Configure Webhook:
+```
+POST /webhooks/create
+Content-Type: application/json
+
+{
+  "url": "https://yourserver.com/webhook",
+  "events": ["file.created", "file.modified", "file.deleted"],
+  "secret": "your_webhook_secret"
+}
+
+Supported Events:
+- file.created
+- file.modified
+- file.deleted
+- file.moved
+- file.shared
+- user.added
+- user.removed
+```
+
+Webhook Payload Example:
+```json
+{
+  "event": "file.created",
+  "timestamp": "2026-01-11T12:00:00Z",
+  "data": {
+    "file_id": "file_new123",
+    "path": "/documents/new_file.pdf",
+    "user_id": "user_789",
+    "size": 1024000
+  }
+}
+```
+
+=== ERROR HANDLING ===
+
+HTTP Status Codes:
+- 200: Success
+- 201: Created
+- 400: Bad Request
+- 401: Unauthorized
+- 403: Forbidden
+- 404: Not Found
+- 409: Conflict (e.g., file already exists)
+- 429: Rate Limit Exceeded
+- 500: Internal Server Error
+- 503: Service Unavailable
+
+Error Response Format:
+```json
+{
+  "error": {
+    "code": "file_not_found",
+    "message": "The specified file does not exist",
+    "details": {
+      "file_id": "file_invalid"
+    }
+  }
+}
+```
+
+=== RATE LIMITING ===
+
+Rate limits are enforced per API key:
+- Business Plan: 10,000 requests/hour
+- Enterprise Plan: 100,000 requests/hour
+
+Response Headers:
+```
+X-RateLimit-Limit: 10000
+X-RateLimit-Remaining: 9500
+X-RateLimit-Reset: 1704988800
+```
+
+When rate limited:
+```
+HTTP 429 Too Many Requests
+{
+  "error": {
+    "code": "rate_limit_exceeded",
+    "message": "Rate limit exceeded. Try again in 3600 seconds"
+  }
+}
+```
+
+=== BEST PRACTICES ===
+
+1. Caching: Cache responses when appropriate to reduce API calls
+2. Pagination: Use pagination for large result sets
+3. Webhooks: Use webhooks instead of polling for real-time updates
+4. Batch Operations: Group multiple operations when possible
+5. Error Handling: Implement exponential backoff for retries
+6. Versioning: Specify API version in requests
+7. Security: Store API keys securely, never in client-side code
+8. Testing: Use sandbox environment for development (sandbox.api.cloudsync.com)
+
+=== SDK AVAILABILITY ===
+
+Official SDKs:
+- Python: pip install cloudsync-sdk
+- JavaScript/Node.js: npm install cloudsync-sdk
+- Java: Maven central repository
+- C#/.NET: NuGet package
+- Ruby: gem install cloudsync
+- PHP: Composer package
+
+Community SDKs:
+- Go, Rust, Swift (see GitHub)

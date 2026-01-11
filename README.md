@@ -1,14 +1,99 @@
-# AI Support Agent
+# AI Support Agent 🤖
 
-AI Support Agent with Azure OpenAI & Tool Calling
+**Intelligent RAG-powered support agent with Azure OpenAI**
+
+An AI agent that answers questions using either direct LLM knowledge or retrieves relevant information from your documents using semantic search (RAG). Exposed via a clean REST API built with FastAPI.
+
+---
+
+## 📋 Table of Contents
+
+- [Architecture](#-architecture)
+- [Features](#-features)
+- [Quick Start](#-quick-start)
+- [API Usage](#-api-usage)
+- [Project Structure](#-project-structure)
+- [Testing](#-testing)
+
+---
+
+## 🏗️ Architecture
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                         CLIENT REQUEST                          │
+│                    POST /ask {query, session_id}                │
+└────────────────────────────┬────────────────────────────────────┘
+                             │
+                             ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                         FastAPI Server                          │
+│                          (api.py)                               │
+└────────────────────────────┬────────────────────────────────────┘
+                             │
+                             ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                    RAG Agent (api.py)                           │
+│  ┌──────────────────────────────────────────────────────────┐  │
+│  │  1. Receives query + conversation history                │  │
+│  │  2. Azure OpenAI decides: Answer directly OR search docs │  │
+│  │  3. If search needed → calls search_documents_rag()      │  │
+│  └──────────────────────────────────────────────────────────┘  │
+└────────────────────────────┬────────────────────────────────────┘
+                             │
+                             ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                    RAG System (rag_system.py)                   │
+│  ┌──────────────────────────────────────────────────────────┐  │
+│  │  DocumentChunker → Splits docs into 500-word chunks      │  │
+│  │  EmbeddingGenerator → text-embedding-3-large (3072-dim)  │  │
+│  │  FAISSVectorStore → L2 similarity search                 │  │
+│  │  RAGSystem → Orchestrates search & returns top 3 chunks  │  │
+│  └──────────────────────────────────────────────────────────┘  │
+└────────────────────────────┬────────────────────────────────────┘
+                             │
+                             ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                     Azure OpenAI Services                       │
+│  ┌────────────────────────┐  ┌─────────────────────────────┐   │
+│  │  GPT-4o-mini           │  │  text-embedding-3-large     │   │
+│  │  (Chat Completions)    │  │  (Embeddings)               │   │
+│  └────────────────────────┘  └─────────────────────────────┘   │
+└─────────────────────────────────────────────────────────────────┘
+                             │
+                             ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                         RESPONSE                                │
+│              {answer, source, session_id}                       │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### How It Works
+
+1. **Client** sends a question via REST API
+2. **FastAPI** routes to RAG Agent with session management
+3. **RAG Agent** uses Azure OpenAI's function calling to decide:
+   - Answer directly from LLM knowledge
+   - OR search documents using RAG system
+4. **RAG System** (if triggered):
+   - Converts query to embeddings
+   - Searches FAISS vector store
+   - Returns top 3 relevant document chunks
+5. **Azure OpenAI** generates final answer with context
+6. **Response** returned with answer and source attribution
+
+---
 
 ## ✨ Features
 
-✅ **Direct LLM Responses**: Answers general questions using Azure OpenAI (gpt-4o-mini)  
-✅ **Document Search Tool**: Searches through provided documents for specific information  
-✅ **Session-based Memory**: Maintains conversation context during the session  
-✅ **Tool Calling**: Automatically decides when to use document search  
-✅ **Prompt Engineering**: Optimized system prompts for better responses
+- ✅ **Semantic Search**: FAISS vector database with 3072-dim embeddings
+- ✅ **Smart Routing**: AI decides when to search documents vs answer directly
+- ✅ **Session Memory**: Maintains conversation context per session
+- ✅ **REST API**: FastAPI with automatic OpenAPI docs
+- ✅ **Document Chunking**: Intelligent 500-word chunks with overlap
+- ✅ **Source Attribution**: Tracks which documents were used
+
+---
 
 ## 🚀 Quick Start
 
@@ -18,171 +103,325 @@ AI Support Agent with Azure OpenAI & Tool Calling
 pip install -r requirements.txt
 ```
 
-### 2. Configure Environment
+### 2. Set Up Environment
 
-Edit `.env` file with your Azure OpenAI credentials:
+Create a `.env` file with your Azure OpenAI credentials:
 
 ```env
-AZURE_OPENAI_API_KEY=<your-api-key>
-AZURE_OPENAI_ENDPOINT=https://sayan-mka1tkzo-eastus2.cognitiveservices.azure.com/
-AZURE_OPENAI_DEPLOYMENT=sayantan-chat
+AZURE_OPENAI_API_KEY=your-api-key-here
+AZURE_OPENAI_ENDPOINT=https://your-resource.openai.azure.com/
+AZURE_OPENAI_DEPLOYMENT=your-chat-deployment-name
+AZURE_OPENAI_EMBEDDING_DEPLOYMENT=your-embedding-deployment-name
 AZURE_OPENAI_API_VERSION=2024-12-01-preview
 ```
 
-### 3. Run the Agent
+### 3. Build RAG Index
 
 ```bash
-python main.py
+python rag_system.py
 ```
 
-### 4. Test the Agent
+This will:
+
+- Load documents from `documents/` folder
+- Split them into chunks
+- Generate embeddings
+- Build FAISS index
+- Save to `rag_index/` folder
+
+### 4. Start the API Server
 
 ```bash
-python test_agent.py
+uvicorn api:app --reload
 ```
 
-## 💡 Usage Examples
+Server will start at `http://127.0.0.1:8000`
 
-### General Knowledge Query (Direct LLM)
+---
 
-```
-You: What is Python?
-Agent: Python is a high-level, interpreted programming language...
-```
+## 📡 API Usage
 
-### Policy Question (Uses Document Search Tool)
+### Interactive API Docs
 
-```
-You: How many days of annual leave do I get?
-Agent: According to the Leave Policy, you are entitled to 20 days of annual leave per year.
-```
+Open in your browser:
 
-### Follow-up Questions (Uses Memory)
+- **Swagger UI**: http://127.0.0.1:8000/docs
+- **ReDoc**: http://127.0.0.1:8000/redoc
 
-```
-You: What about sick leave?
-Agent: You get 10 days of sick leave per year...
-```
+### Ask a Question
 
-## 🏗️ Architecture
-
-### How It Works
-
-```
-┌─────────────┐
-│ User Query  │
-└──────┬──────┘
-       │
-       ▼
-┌─────────────────────────────────────┐
-│     Azure OpenAI + Tool Calling     │
-│  (Decides: Direct Answer vs Tool)   │
-└─────────────┬───────────────────────┘
-              │
-       ┌──────┴──────┐
-       │             │
-       ▼             ▼
-┌─────────────┐  ┌────────────────┐
-│   Direct    │  │ Document Search│
-│   Answer    │  │     Tool       │
-└─────────────┘  └────────┬───────┘
-                          │
-                          ▼
-                 ┌─────────────────┐
-                 │ Final Response  │
-                 │  with Context   │
-                 └─────────────────┘
+```bash
+curl -X POST "http://127.0.0.1:8000/ask" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "query": "What is our remote work policy?",
+    "session_id": "user123"
+  }'
 ```
 
-### Core Components
+**Response:**
 
-1. **AIAgent Class**
+```json
+{
+  "answer": "Our remote work policy allows employees to work remotely up to 3 days per week...",
+  "source": "documents",
+  "session_id": "user123"
+}
+```
 
-   - Orchestrates conversation flow
-   - Manages tool calling decisions
-   - Maintains conversation history
+### All Available Endpoints
 
-2. **Tool System**
+- `GET /` - Health check
+- `POST /ask` - Ask a question
+- `GET /sessions` - List all active sessions
+- `DELETE /sessions/{session_id}` - Clear a session
+- `POST /rebuild-index` - Rebuild RAG index
+- `GET /health` - API health status
 
-   - `search_documents()`: Keyword-based document search
-   - Automatically invoked for policy queries
-   - Returns relevant document excerpts
+---
 
-3. **Memory System**
+## 📁 Project Structure
 
-   - Session-based conversation history
-   - Maintains context across queries
-   - Clearable with 'clear' command
+```
+Ai-Support-Agent/
+│
+├── api.py                    # FastAPI server + RAG Agent
+├── rag_system.py            # RAG implementation (chunking, embeddings, FAISS)
+├── requirements.txt         # Python dependencies
+├── README.md               # This file
+│
+├── .env                    # Azure OpenAI credentials (create this)
+│
+├── documents/              # Knowledge base documents
+│   ├── company_policies.txt
+│   ├── employee_handbook.txt
+│   ├── product_faq.txt
+│   ├── security_policy.txt
+│   └── technical_docs.txt
+│
+└── rag_index/             # FAISS vector store (auto-generated)
+    ├── index.faiss
+    ├── chunks.pkl
+    └── metadata.pkl
+```
 
-4. **Document Store**
-   - In-memory storage
-   - Simple keyword matching
-   - Extensible architecture
+### File Descriptions
 
-## 🛠️ Extending the Agent
+- **`api.py`**: Complete FastAPI application with RAG-powered agent, session management, and all endpoints
+- **`rag_system.py`**: RAG pipeline - document chunking, embedding generation, FAISS vector store, semantic search
+- **`documents/`**: Your knowledge base - add more `.txt` files here and rebuild the index
+- **`rag_index/`**: Persisted FAISS index - automatically created when you run `rag_system.py`
 
-### Add New Tools
+---
+
+## 🧪 Testing
+
+### Test with Python
 
 ```python
-tools = [
-    {
-        "type": "function",
-        "function": {
-            "name": "calculate_tax",
-            "description": "Calculate tax based on salary",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "salary": {"type": "number", "description": "Annual salary"}
-                },
-                "required": ["salary"]
-            }
-        }
+import requests
+
+response = requests.post(
+    "http://127.0.0.1:8000/ask",
+    json={
+        "query": "How many days of annual leave?",
+        "session_id": "test"
     }
-]
-```
-
-### Add More Documents
-
-```python
-agent.add_document(
-    title="IT Security Policy",
-    content="All employees must use 2FA..."
 )
+print(response.json())
 ```
 
-## 📋 Available Commands
+### Test with curl
 
-- Type any question to get an answer
-- `clear` - Reset conversation history
-- `quit` - Exit the application
+```bash
+# General question (uses LLM knowledge)
+curl -X POST http://127.0.0.1:8000/ask \
+  -H "Content-Type: application/json" \
+  -d '{"query": "What is Python?", "session_id": "test"}'
 
-## 🔧 Technical Stack
+# Document question (uses RAG)
+curl -X POST http://127.0.0.1:8000/ask \
+  -H "Content-Type: application/json" \
+  -d '{"query": "What is our security policy?", "session_id": "test"}'
 
-- **Language**: Python 3.8+
-- **LLM**: Azure OpenAI (gpt-4o-mini)
-- **API Version**: 2024-12-01-preview
-- **Libraries**: openai, python-dotenv
-- **Features**: Function Calling, Chat Completions
+# Follow-up (uses session memory)
+curl -X POST http://127.0.0.1:8000/ask \
+  -H "Content-Type: application/json" \
+  -d '{"query": "Tell me more about that", "session_id": "test"}'
+```
 
-## 📝 Requirements Met
+---
 
-✅ Accepts user queries  
-✅ Decides between direct LLM response or document search  
-✅ Uses Azure OpenAI API  
-✅ Implements prompt engineering  
-✅ Implements tool calling (search_documents)  
-✅ Maintains session-based memory  
-✅ Returns clear, structured responses
+## 📚 Adding New Documents
 
-## 🎯 Example Use Case
+1. Add `.txt` files to the `documents/` folder
+2. Rebuild the index:
+   ```bash
+   python rag_system.py
+   ```
+   OR call the API:
+   ```bash
+   curl -X POST http://127.0.0.1:8000/rebuild-index
+   ```
+3. New documents are now searchable!
 
-**Scenario**: Company internal policy assistant
+---
 
-The agent can answer:
+## 🔧 Configuration
 
-- General questions using its LLM knowledge
-- Company-specific policy questions using document search
-- Follow-up questions using conversation memory
+Edit `.env` to change:
 
-Perfect for HR departments, employee onboarding, or internal support teams!
+- Azure OpenAI model/deployment
+- API version
+- Endpoint URL
+
+Edit `rag_system.py` to adjust:
+
+- Chunk size (default: 500 words)
+- Chunk overlap (default: 50 words)
+- Top-k results (default: 3)
+
+Edit `api.py` to modify:
+
+- System prompts
+- API endpoints
+- Session management
+
+---
+
+## � What Was Built - Task Summary
+
+### Task 1: AI Agent Development ✅
+
+**Objective**: Build an AI agent with tool calling capabilities
+
+**What Was Implemented**:
+
+- ✅ **Azure OpenAI Integration**: Connected to gpt-4o-mini model for chat completions
+- ✅ **Tool Calling System**: Implemented function calling with `search_documents()` tool
+- ✅ **Prompt Engineering**: Created system prompts that instruct the AI to:
+  - Answer general questions directly using LLM knowledge
+  - Automatically invoke document search for company-specific queries
+  - Decide intelligently when to use which approach
+- ✅ **Session Memory**: Built conversation history tracking that:
+  - Maintains context across multiple queries
+  - Persists per session ID
+  - Enables follow-up questions
+- ✅ **Agent Architecture**: Created `RAGAgent` class in [api.py](api.py) with:
+  - `process_query()` method for handling user input
+  - `search_documents()` method for document retrieval
+  - Automatic tool execution and response generation
+
+**Technical Details**:
+
+- Model: `gpt-4o-mini` (Azure OpenAI)
+- Tool: Function calling with JSON schema
+- Memory: List-based conversation history with role-based messages
+
+---
+
+### Task 2: RAG Implementation ✅
+
+**Objective**: Implement Retrieval-Augmented Generation with document embeddings
+
+**What Was Implemented**:
+
+- ✅ **5 Sample Documents Created**:
+
+  1. `company_policies.txt` - Remote work policy, leave policies, code of conduct
+  2. `employee_handbook.txt` - Benefits, compensation, working hours
+  3. `product_faq.txt` - CloudSync Pro product information, pricing, features
+  4. `security_policy.txt` - Encryption standards, access control, compliance
+  5. `technical_docs.txt` - API documentation, authentication, rate limits
+
+- ✅ **Document Chunking System** ([rag_system.py](rag_system.py)):
+
+  - `DocumentChunker` class splits documents into 500-word chunks
+  - 50-word overlap between chunks for context preservation
+  - Maintains metadata (source filename) for each chunk
+
+- ✅ **Embedding Generation**:
+
+  - Model: `text-embedding-3-large` (Azure OpenAI)
+  - Vector dimensions: 3072-dimensional embeddings
+  - Auto-detection of embedding dimensions
+  - Batch processing for efficiency
+
+- ✅ **FAISS Vector Store**:
+
+  - `FAISSVectorStore` class for similarity search
+  - L2 distance metric (IndexFlatL2)
+  - Stores 13 total chunks from 5 documents
+  - Persistence to disk in `rag_index/` folder
+
+- ✅ **Semantic Search**:
+  - `RAGSystem` orchestrates the entire pipeline
+  - Query → Embedding → FAISS Search → Top-K results
+  - Returns top 3 most relevant chunks with scores
+  - Source attribution for each result
+
+**Technical Details**:
+
+- Embeddings: `text-embedding-3-large` (3072-dim)
+- Vector DB: FAISS with L2 similarity
+- Chunks: 13 chunks, 500 words each, 50-word overlap
+- Index saved to: `rag_index/index.faiss`, `chunks.pkl`, `metadata.pkl`
+
+---
+
+### Task 3: Backend API ✅
+
+**Objective**: Create REST API using FastAPI
+
+**What Was Implemented**:
+
+- ✅ **FastAPI Application** ([api.py](api.py)):
+
+  - Production-ready ASGI server with Uvicorn
+  - CORS middleware for cross-origin requests
+  - Auto-generated OpenAPI documentation at `/docs`
+  - Pydantic models for request/response validation
+
+- ✅ **6 API Endpoints**:
+
+  1. `GET /` - Root endpoint with API info
+  2. `POST /ask` - Main endpoint for asking questions
+     - Input: `{query: str, session_id?: str}`
+     - Output: `{answer: str, source: str, session_id: str}`
+  3. `GET /health` - Health check with RAG index status
+  4. `GET /sessions` - List all active sessions
+  5. `DELETE /sessions/{session_id}` - Clear specific session
+  6. `POST /rebuild-index` - Rebuild RAG index from documents
+
+- ✅ **Session Management**:
+
+  - In-memory session storage (dict-based)
+  - Each session has its own `RAGAgent` instance
+  - Maintains conversation history per session
+  - Auto-generates UUID if no session_id provided
+
+- ✅ **RAG Integration**:
+  - Agent uses tool calling to decide: LLM vs Document search
+  - Semantic search via FAISS when documents needed
+  - Source tracking (returns "llm" or "documents")
+  - Context-aware responses using conversation history
+
+**Technical Details**:
+
+- Framework: FastAPI with Uvicorn
+- Port: 8000 (default)
+- Session Storage: In-memory dictionary
+- Response Format: JSON with answer, source, session_id
+- Documentation: Auto-generated Swagger UI at `/docs`
+
+---
+
+## �📝 License
+
+MIT License - Feel free to use for your projects!
+
+---
+
+## 🤝 Contributing
+
+Add more documents, improve prompts, or enhance the RAG system - all contributions welcome!

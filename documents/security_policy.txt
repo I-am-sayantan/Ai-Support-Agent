@@ -1,0 +1,254 @@
+INFORMATION SECURITY POLICY
+
+=== OVERVIEW ===
+
+This Information Security Policy outlines the requirements and guidelines for protecting company information assets, systems, and data. All employees, contractors, and third parties with access to company systems must comply with this policy.
+
+Policy Owner: Chief Information Security Officer (CISO)
+Last Updated: January 1, 2026
+Review Cycle: Annual
+Compliance: SOC 2, ISO 27001, GDPR, CCPA, HIPAA
+
+=== ACCESS CONTROL ===
+
+User Authentication:
+- Unique user IDs for all systems (no shared accounts)
+- Strong passwords required (12+ characters, complexity rules)
+- Password expiration: 90 days
+- Password reuse: Cannot reuse last 10 passwords
+- Account lockout: 5 failed login attempts
+- Multi-factor authentication (MFA) mandatory for:
+  * Email and productivity tools
+  * VPN access
+  * Administrative access
+  * Customer data systems
+  * Financial systems
+
+Account Management:
+- Access provisioned based on job role (least privilege principle)
+- Manager approval required for all access requests
+- Access reviews conducted quarterly
+- Terminated employee access revoked within 1 hour
+- Contractor access expires automatically on end date
+- Privileged access requires secondary approval
+
+Physical Access:
+- Badge required for building entry
+- Visitor sign-in required (escort mandatory)
+- Server room: Limited access, biometric + PIN
+- Cameras monitor all entry points
+- Tailgating prohibited (security will challenge)
+- Lost badges reported immediately
+
+=== DATA CLASSIFICATION ===
+
+Public:
+- Marketing materials, press releases
+- Public website content
+- No special handling required
+
+Internal:
+- General business information
+- Internal communications
+- Employee directory
+- Handling: Not to be shared externally without approval
+
+Confidential:
+- Financial data, strategic plans
+- Employee personal information
+- Customer lists, contracts
+- Source code, trade secrets
+- Handling: Encrypted in transit and at rest, need-to-know access
+
+Restricted:
+- Customer PII (Personally Identifiable Information)
+- Payment card data (PCI-DSS scope)
+- Health information (HIPAA scope)
+- Handling: Highest security controls, audit trail required
+
+=== DATA PROTECTION ===
+
+Encryption:
+- Data at rest: AES-256 encryption required for Confidential and Restricted data
+- Data in transit: TLS 1.3 or higher for all external communications
+- Email: Encrypted email required for sending Confidential/Restricted data
+- Laptops: Full disk encryption mandatory (BitLocker, FileVault)
+- Mobile devices: Encrypted containers for company data
+- Cloud storage: Encryption enabled by default
+
+Data Retention:
+- Email: 7 years retention
+- Financial records: 7 years retention
+- Employee records: 7 years post-termination
+- Customer data: Duration of relationship + 3 years
+- Logs: 1 year retention (security logs: 2 years)
+- Backup retention: 90 days for daily, 7 years for annual
+
+Data Disposal:
+- Paper documents: Cross-cut shredding
+- Hard drives: DOD 5220.22-M wiping or physical destruction
+- Electronic media: Secure erase tools
+- Certificate of destruction required for Restricted data
+- Disposal logs maintained for audit
+
+=== NETWORK SECURITY ===
+
+Network Segmentation:
+- Production network isolated from corporate
+- DMZ for internet-facing services
+- Guest WiFi on separate VLAN
+- VLANs for different departments
+- Network access control (NAC) for device authentication
+
+Firewall Rules:
+- Default deny all traffic
+- Whitelist approach for allowed traffic
+- Rules reviewed quarterly
+- Change management required for modifications
+- Logging enabled for all deny events
+
+VPN Access:
+- Split-tunnel VPN for remote work
+- MFA required for VPN connection
+- VPN access logged and monitored
+- Idle timeout: 30 minutes
+- Only company-managed devices allowed
+
+Wireless Security:
+- WPA3 encryption required
+- Corporate WiFi: 802.1X authentication
+- Guest WiFi: Isolated, limited internet access
+- Rogue access point detection
+- WiFi password changed quarterly
+
+=== ENDPOINT SECURITY ===
+
+Antivirus/Anti-malware:
+- Endpoint protection required on all devices
+- Real-time scanning enabled
+- Daily signature updates
+- Full system scan weekly
+- Quarantine alerts sent to security team
+
+Device Management:
+- MDM (Mobile Device Management) for all mobile devices
+- Centralized patch management
+- Automatic updates for critical patches
+- Device inventory maintained
+- Remote wipe capability for lost/stolen devices
+
+Acceptable Use:
+- Company devices for business purposes
+- Reasonable personal use permitted
+- No illegal activities
+- No downloading pirated software
+- No visiting malicious websites
+- USB drives: Approved devices only
+
+=== INCIDENT RESPONSE ===
+
+Security Incidents Include:
+- Data breaches or suspected breaches
+- Malware infections
+- Unauthorized access attempts
+- Lost or stolen devices
+- Phishing attacks
+- DDoS attacks
+
+Reporting:
+- Report incidents immediately to security@company.com
+- 24/7 security hotline: 1-800-SEC-TEAM
+- Do not attempt to fix yourself
+- Preserve evidence (don't turn off device)
+- Document what happened
+
+Response Process:
+1. Detection and Reporting (0-1 hour)
+2. Containment (1-4 hours)
+3. Investigation (varies)
+4. Eradication (varies)
+5. Recovery (varies)
+6. Post-Incident Review (within 7 days)
+
+Breach Notification:
+- Legal team notified immediately
+- Customers notified within 72 hours (GDPR requirement)
+- Regulators notified as required by law
+- Public disclosure if necessary
+- Credit monitoring offered for PII breaches
+
+=== THIRD-PARTY SECURITY ===
+
+Vendor Assessment:
+- Security questionnaire required for all vendors
+- SOC 2 Type II report required for critical vendors
+- Insurance requirements: $2M cyber liability
+- Contract must include security requirements
+- Annual re-assessment
+
+Data Sharing:
+- Data Processing Agreement (DPA) required
+- Minimum necessary data shared
+- Encrypted transmission required
+- Access logs monitored
+- Right to audit vendor security
+
+=== COMPLIANCE AND TRAINING ===
+
+Security Awareness Training:
+- Mandatory annual training for all employees
+- New hire training in first week
+- Phishing simulation quarterly
+- Role-specific training (developers, admins)
+- Incident response drills annually
+
+Policy Compliance:
+- Policy violations subject to disciplinary action
+- Security audits conducted annually
+- Penetration testing twice per year
+- Vulnerability scans weekly
+- Compliance reports to board quarterly
+
+Certifications Maintained:
+- SOC 2 Type II (annual audit)
+- ISO 27001 (annual surveillance, 3-year recertification)
+- PCI-DSS Level 1 (annual assessment)
+- HIPAA compliance (ongoing)
+- State privacy laws (CCPA, GDPR)
+
+=== ACCEPTABLE USE EXAMPLES ===
+
+Prohibited Activities:
+- Sharing passwords with colleagues
+- Using personal email for company business
+- Storing customer data on personal devices
+- Disabling antivirus software
+- Connecting unauthorized devices to network
+- Accessing systems without authorization
+- Downloading pirated software
+- Cryptocurrency mining on company resources
+
+Required Activities:
+- Lock computer when leaving desk (Windows+L)
+- Report suspicious emails to IT
+- Use strong, unique passwords
+- Enable MFA on all accounts
+- Encrypt sensitive emails
+- Use VPN when working remotely
+- Attend security training
+- Follow clean desk policy
+
+=== CONSEQUENCES ===
+
+Minor Violations:
+- First offense: Written warning
+- Second offense: Formal disciplinary action
+- Third offense: Termination
+
+Major Violations:
+- Immediate suspension pending investigation
+- Potential termination
+- Legal action if applicable
+- Law enforcement notification for criminal activity
+
+All violations documented in employee file and may impact performance reviews, bonuses, and promotion eligibility.

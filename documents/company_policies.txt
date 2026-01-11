@@ -1,0 +1,125 @@
+COMPANY POLICIES AND PROCEDURES
+
+=== REMOTE WORK POLICY ===
+
+Effective Date: January 1, 2025
+
+Our company embraces flexible work arrangements to promote work-life balance and productivity.
+
+Eligibility:
+- All full-time employees with 6+ months tenure are eligible for remote work
+- Part-time employees may request remote work on a case-by-case basis
+- New hires become eligible after completing probation period
+
+Remote Work Schedule:
+- Employees can work remotely up to 3 days per week
+- At least 2 days per week must be in-office (typically Tuesday and Thursday)
+- Core hours are 10 AM - 3 PM in your local timezone
+- You must be available on Slack/Teams during core hours
+- Monthly all-hands meetings require in-person attendance
+
+Equipment and Stipends:
+- Home office equipment stipend: $500 annually
+- Company provides laptop, monitor, keyboard, and mouse
+- Internet reimbursement: Up to $50 per month with receipts
+- Ergonomic equipment can be requested through IT department
+
+Security Requirements:
+- Use company VPN for all work-related activities
+- Enable two-factor authentication on all company accounts
+- Keep work devices password-protected
+- Do not work from public WiFi networks
+- Report any security incidents immediately
+
+Performance Expectations:
+- Maintain same productivity levels as in-office work
+- Respond to messages within 2 hours during core hours
+- Attend all scheduled meetings (virtual or in-person)
+- Submit weekly status reports
+- Complete assigned tasks on deadline
+
+=== LEAVE POLICY ===
+
+Effective Date: January 1, 2025
+
+Annual Leave:
+- 20 days per calendar year for full-time employees
+- Accrues at 1.67 days per month
+- Can be carried over up to 5 days to next year
+- Leave requests must be submitted 2 weeks in advance
+- Manager approval required for leaves over 3 consecutive days
+- Blackout periods during Q4 fiscal close (December 15-31)
+
+Sick Leave:
+- 10 days per year (does not accrue, resets annually)
+- No advance notice required for genuine illness
+- Medical certificate required for absences over 3 consecutive days
+- Can be used for medical appointments
+- Family care: Up to 3 days for immediate family illness
+
+Parental Leave:
+- Primary caregiver: 16 weeks fully paid
+- Secondary caregiver: 6 weeks fully paid
+- Must be taken within 12 months of birth/adoption
+- Can be split into two periods with manager approval
+- Full benefits continue during parental leave
+
+Bereavement Leave:
+- Immediate family: 5 days paid
+- Extended family: 3 days paid
+- Additional unpaid leave available upon request
+
+Public Holidays:
+- 12 public holidays per year as per local calendar
+- If holiday falls on weekend, following Monday is off
+- List published at start of each fiscal year
+
+Leave Application Process:
+- Submit through HR portal at least 2 weeks before
+- Manager has 48 hours to approve/reject
+- HR approval needed for leaves over 10 consecutive days
+- Emergency leave can be applied retrospectively within 24 hours
+
+=== CODE OF CONDUCT ===
+
+Our company is committed to maintaining a respectful, inclusive, and professional workplace.
+
+Professional Behavior:
+- Treat all colleagues with respect and dignity
+- Communicate professionally in all channels
+- Maintain confidentiality of sensitive information
+- Dress appropriately for client meetings
+- Be punctual for meetings and deadlines
+
+Diversity and Inclusion:
+- Zero tolerance for discrimination based on race, gender, age, religion, or orientation
+- Respect cultural differences and celebrations
+- Use inclusive language in all communications
+- Report discrimination immediately to HR
+- Participate in mandatory diversity training annually
+
+Conflict of Interest:
+- Disclose any potential conflicts of interest to your manager
+- Do not accept gifts over $100 from vendors or clients
+- No outside employment that competes with company business
+- Family members cannot report directly to each other
+
+Data Privacy:
+- Handle customer data according to GDPR/CCPA regulations
+- Do not share customer information externally
+- Use only approved cloud storage services
+- Encrypt sensitive documents
+- Complete annual data privacy training
+
+Social Media:
+- Do not speak on behalf of company without authorization
+- Disclose company affiliation when discussing industry topics
+- Do not share confidential company information
+- Report social media security threats
+- Respect copyright and intellectual property
+
+Violations:
+- Minor violations: Verbal warning
+- Repeated violations: Written warning and performance improvement plan
+- Serious violations: Immediate termination
+- All violations documented in employee file
