@@ -9,11 +9,15 @@ An AI agent that answers questions using either direct LLM knowledge or retrieve
 ## 📋 Table of Contents
 
 - [Architecture](#-architecture)
+- [Tech Stack](#-tech-stack)
 - [Features](#-features)
 - [Quick Start](#-quick-start)
+- [Azure Deployment](#-azure-deployment)
 - [API Usage](#-api-usage)
 - [Project Structure](#-project-structure)
 - [Testing](#-testing)
+- [Design Decisions](#-design-decisions)
+- [Limitations & Future Improvements](#-limitations--future-improvements)
 
 ---
 
@@ -148,6 +152,31 @@ DATA STORAGE:                                              │
 
 ---
 
+## 🛠️ Tech Stack
+
+| Category               | Technology                            | Purpose                                       |
+| ---------------------- | ------------------------------------- | --------------------------------------------- |
+| **Backend Framework**  | FastAPI                               | High-performance async REST API               |
+| **AI/LLM**             | Azure OpenAI (GPT-4o-mini)            | Chat completions with function calling        |
+| **Embeddings**         | Azure OpenAI (text-embedding-3-large) | 3072-dimensional vector embeddings            |
+| **Vector Database**    | FAISS                                 | Fast similarity search for document retrieval |
+| **Containerization**   | Docker                                | Production-ready container images             |
+| **CI/CD**              | GitHub Actions                        | Automated build and deployment pipeline       |
+| **Cloud Platform**     | Azure App Service                     | Linux container hosting                       |
+| **Container Registry** | GitHub Container Registry (ghcr.io)   | Docker image storage                          |
+| **Authentication**     | OIDC + Azure AD                       | Secure passwordless CI/CD authentication      |
+| **Language**           | Python 3.11                           | Core programming language                     |
+
+**Key Libraries**:
+
+- `openai` - Azure OpenAI SDK
+- `faiss-cpu` - Vector similarity search
+- `uvicorn` - ASGI server
+- `pydantic` - Data validation
+- `python-dotenv` - Environment configuration
+
+---
+
 ## ✨ Features
 
 - ✅ **Semantic Search**: FAISS vector database with 3072-dim embeddings
@@ -200,6 +229,131 @@ uvicorn api:app --reload
 ```
 
 Server will start at `http://127.0.0.1:8000`
+
+---
+
+## 🎬 Live Demo
+
+The AI Support Agent is deployed and running on Azure App Service!
+
+**🌐 Live URL**: [https://ai-support-agent-f3fng7bdd6h9dqed.centralindia-01.azurewebsites.net](https://ai-support-agent-f3fng7bdd6h9dqed.centralindia-01.azurewebsites.net)
+
+**📚 API Docs**: [https://ai-support-agent-f3fng7bdd6h9dqed.centralindia-01.azurewebsites.net/docs](https://ai-support-agent-f3fng7bdd6h9dqed.centralindia-01.azurewebsites.net/docs)
+
+### Azure Log Stream - Application Running
+
+![Azure Log Stream](images/azure-log-stream.png)
+
+_The application successfully starts with Uvicorn on port 8000, serving API requests with 200 OK responses._
+
+### Swagger UI - API Response
+
+![Swagger UI Response](images/swagger-api-response.png)
+
+_Testing the `/ask` endpoint with query "What should I do when I want to resign?" - Returns comprehensive resignation steps from the LLM._
+
+### Sample API Request
+
+```bash
+curl -X 'POST' \
+  'https://ai-support-agent-f3fng7bdd6h9dqed.centralindia-01.azurewebsites.net/ask' \
+  -H 'accept: application/json' \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "query": "What should I do when I want to resign?",
+    "session_id": "demo_session"
+  }'
+```
+
+### Sample Response
+
+```json
+{
+  "answer": "When you decide to resign from your position, follow these steps:\n\n1. **Review Your Contract**: Check your employment contract...\n\n2. **Prepare Your Resignation Letter**: Write a formal resignation letter...\n\n3. **Speak to Your Supervisor**: Request a meeting with your supervisor...",
+  "source": "llm",
+  "session_id": "demo_session"
+}
+```
+
+---
+
+## ☁️ Azure Deployment
+
+### Prerequisites
+
+- Azure account with active subscription
+- Azure OpenAI resource with deployed models
+- GitHub account
+- Docker Desktop (for local testing)
+
+### Step 1: Azure Resources Setup
+
+1. **Create Resource Group**:
+
+   ```bash
+   az group create --name rg-ai-support-agent --location centralindia
+   ```
+
+2. **Create App Service Plan**:
+
+   ```bash
+   az appservice plan create \
+     --name asp-ai-support-agent \
+     --resource-group rg-ai-support-agent \
+     --is-linux --sku B1
+   ```
+
+3. **Create Web App**:
+   ```bash
+   az webapp create \
+     --name ai-support-agent \
+     --resource-group rg-ai-support-agent \
+     --plan asp-ai-support-agent \
+     --container-image-name ghcr.io/<username>/ai-support-agent:latest
+   ```
+
+### Step 2: Azure AD App Registration (for OIDC)
+
+1. Go to **Azure Portal** → **Microsoft Entra ID** → **App registrations**
+2. Click **New registration** → Name: `github-actions-ai-support`
+3. Note the **Application (client) ID** and **Directory (tenant) ID**
+4. Go to **Certificates & secrets** → **Federated credentials** → **Add credential**
+5. Configure:
+   - Scenario: `GitHub Actions deploying Azure resources`
+   - Organization: `<your-github-username>`
+   - Repository: `Ai-Support-Agent`
+   - Entity type: `Branch`
+   - Branch: `main`
+
+### Step 3: Assign RBAC Role
+
+1. Go to **Resource Groups** → `rg-ai-support-agent` → **Access control (IAM)**
+2. Click **Add** → **Add role assignment**
+3. Role: `Contributor`
+4. Members: Select your App Registration service principal
+5. Click **Review + assign**
+
+### Step 4: GitHub Secrets Configuration
+
+Add these secrets in your GitHub repo (**Settings** → **Secrets** → **Actions**):
+
+| Secret                              | Value                                  |
+| ----------------------------------- | -------------------------------------- |
+| `AZURE_CLIENT_ID`                   | App Registration Client ID             |
+| `AZURE_TENANT_ID`                   | Azure AD Tenant ID                     |
+| `AZURE_SUBSCRIPTION_ID`             | Your Azure Subscription ID             |
+| `GHCR_PAT`                          | GitHub PAT with `read:packages` scope  |
+| `AZURE_OPENAI_API_KEY`              | Your Azure OpenAI API key              |
+| `AZURE_OPENAI_ENDPOINT`             | `https://<resource>.openai.azure.com/` |
+| `AZURE_OPENAI_DEPLOYMENT`           | Chat model deployment name             |
+| `AZURE_OPENAI_EMBEDDING_DEPLOYMENT` | Embedding model deployment name        |
+
+### Step 5: Deploy
+
+1. Push code to `main` branch
+2. Go to **Actions** → **Deploy to Azure** → **Run workflow**
+3. Wait for build and deploy to complete
+4. Access your app at `https://<app-name>.azurewebsites.net`
 
 ---
 
@@ -764,3 +918,149 @@ Ai-Support-Agent/
 - Environment: Production with deployment tracking
 
 ---
+
+## 🎯 Design Decisions
+
+### 1. Why Azure OpenAI over OpenAI API?
+
+| Reason                    | Benefit                                             |
+| ------------------------- | --------------------------------------------------- |
+| **Enterprise compliance** | Data stays within Azure region, GDPR/SOC2 compliant |
+| **SLA guarantee**         | 99.9% uptime SLA for production workloads           |
+| **Private networking**    | Can use VNet integration for secure access          |
+| **Unified billing**       | Single Azure bill for all services                  |
+
+### 2. Why FAISS over Other Vector Databases?
+
+| Reason                     | Benefit                                    |
+| -------------------------- | ------------------------------------------ |
+| **No external dependency** | Runs in-process, no separate server needed |
+| **Fast similarity search** | Optimized for L2/cosine similarity         |
+| **Simple persistence**     | Save/load index to disk easily             |
+| **Low memory footprint**   | Efficient for small-medium document sets   |
+
+_Trade-off_: For larger datasets (100K+ documents), consider Pinecone, Weaviate, or Azure AI Search.
+
+### 3. Why Function Calling over Prompt-Based Routing?
+
+| Reason                | Benefit                                             |
+| --------------------- | --------------------------------------------------- |
+| **Structured output** | Guaranteed JSON format for tool calls               |
+| **Model decides**     | AI determines when to search vs answer directly     |
+| **Extensible**        | Easy to add more tools (web search, database, etc.) |
+| **Reliable**          | Less prone to prompt injection attacks              |
+
+### 4. Why Session-Based Architecture?
+
+| Reason                  | Benefit                                       |
+| ----------------------- | --------------------------------------------- |
+| **Conversation memory** | Follow-up questions work naturally            |
+| **User isolation**      | Each user has independent context             |
+| **Scalable design**     | Can migrate to Redis for distributed sessions |
+
+### 5. Why OIDC Authentication for CI/CD?
+
+| Reason                    | Benefit                                      |
+| ------------------------- | -------------------------------------------- |
+| **No stored secrets**     | No passwords/keys stored in GitHub           |
+| **Short-lived tokens**    | Tokens expire quickly, reducing risk         |
+| **Auditable**             | Azure AD logs all authentication events      |
+| **Microsoft recommended** | Best practice for GitHub + Azure integration |
+
+### 6. Why Manual Workflow Dispatch?
+
+| Reason                     | Benefit                                        |
+| -------------------------- | ---------------------------------------------- |
+| **Controlled deployments** | No accidental production deploys on every push |
+| **Review before deploy**   | Time to verify build before going live         |
+| **Cost control**           | Avoid unnecessary Azure deployments            |
+
+---
+
+## ⚠️ Limitations & Future Improvements
+
+### Current Limitations
+
+| Limitation             | Impact                      | Mitigation                  |
+| ---------------------- | --------------------------- | --------------------------- |
+| **In-memory sessions** | Sessions lost on restart    | Persist to Redis/database   |
+| **Single instance**    | No horizontal scaling       | Add load balancer + Redis   |
+| **Text files only**    | Can't process PDF, DOCX     | Add document parsers        |
+| **English only**       | No multilingual support     | Add language detection      |
+| **No authentication**  | API is public               | Add API key/OAuth           |
+| **Fixed chunk size**   | May split important context | Implement semantic chunking |
+| **No streaming**       | Full response at once       | Add SSE/WebSocket streaming |
+
+### Future Improvements
+
+#### Short-term (v1.1)
+
+- [ ] Add API key authentication
+- [ ] Implement response streaming (SSE)
+- [ ] Add PDF/DOCX document support
+- [ ] Persist sessions to Redis
+- [ ] Add rate limiting
+
+#### Medium-term (v2.0)
+
+- [ ] Multi-language support
+- [ ] Hybrid search (keyword + semantic)
+- [ ] Document upload API endpoint
+- [ ] Admin dashboard for document management
+- [ ] Azure Application Insights integration
+
+#### Long-term (v3.0)
+
+- [ ] Multi-tenant support
+- [ ] Custom fine-tuned models
+- [ ] Voice input/output (Azure Speech)
+- [ ] Slack/Teams integration
+- [ ] Analytics and usage reporting
+
+### Scalability Considerations
+
+```
+Current Architecture (Single Instance):
+┌──────────────────┐
+│   App Service    │
+│   (B1 - 1 core)  │
+│   In-memory      │
+└──────────────────┘
+
+Scaled Architecture (Production):
+┌──────────────────┐     ┌──────────────────┐
+│  App Service 1   │     │  App Service 2   │
+└────────┬─────────┘     └────────┬─────────┘
+         │                        │
+         └──────────┬─────────────┘
+                    │
+         ┌──────────▼─────────┐
+         │   Azure Redis      │
+         │   (Sessions)       │
+         └──────────┬─────────┘
+                    │
+         ┌──────────▼─────────┐
+         │   Azure AI Search  │
+         │   (Vector Store)   │
+         └────────────────────┘
+```
+
+---
+
+## 📄 License
+
+MIT License - See [LICENSE](LICENSE) for details.
+
+---
+
+## 🤝 Contributing
+
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
+
+---
+
+**Built with ❤️ using Azure OpenAI and FastAPI**
