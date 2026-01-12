@@ -47,22 +47,37 @@ jobs:
     name: Deploy to Azure
     needs: build
     runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
 
     steps:
       - name: Convert repository name to lowercase
         id: repo
         run: echo "repo_lower=$(echo ${{ github.repository }} | tr '[:upper:]' '[:lower:]')" >> $GITHUB_OUTPUT
 
-      - name: Deploy to Azure Web App (Container)
-        uses: azure/webapps-deploy@v3
+      - name: Azure Login (OIDC)
+        uses: azure/login@v2
         with:
-          app-name: ${{ env.AZURE_WEBAPP_NAME }}
-          publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
-          images: ghcr.io/${{ steps.repo.outputs.repo_lower }}:latest
-          slot-name: production
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Deploy Container to Azure Web App
+        uses: azure/cli@v2
+        with:
+          azcliversion: latest
+          inlineScript: |
+            az webapp config container set \
+              --name ${{ env.AZURE_WEBAPP_NAME }} \
+              --resource-group ai-support-agent \
+              --docker-custom-image-name ghcr.io/${{ steps.repo.outputs.repo_lower }}:latest \
+              --docker-registry-server-url https://ghcr.io
+
+            az webapp restart --name ${{ env.AZURE_WEBAPP_NAME }} --resource-group ai-support-agent
 
       - name: Deployment Complete
         run: |
           echo "✅ Deployment successful!"
-          echo "🌐 URL: https://${{ env.AZURE_WEBAPP_NAME }}.azurewebsites.net"
-          echo "📚 API Docs: https://${{ env.AZURE_WEBAPP_NAME }}.azurewebsites.net/docs"
+          echo "🌐 URL: https://ai-support-agent-f3fng7bdd6h9dqed.centralindia-01.azurewebsites.net"
+          echo "📚 API Docs: https://ai-support-agent-f3fng7bdd6h9dqed.centralindia-01.azurewebsites.net/docs"
