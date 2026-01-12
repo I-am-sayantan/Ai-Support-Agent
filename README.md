@@ -242,13 +242,13 @@ The AI Support Agent is deployed and running on Azure App Service!
 
 ### Azure Log Stream - Application Running
 
-![Azure Log Stream](images/azure-log-stream.png)
+![Azure Log Stream](https://github.com/user-attachments/assets/4e347ed0-db34-4818-8123-ab71be86dd39)
 
 _The application successfully starts with Uvicorn on port 8000, serving API requests with 200 OK responses._
 
 ### Swagger UI - API Response
 
-![Swagger UI Response](images/swagger-api-response.png)
+![Swagger UI Response](https://github.com/user-attachments/assets/722bdec5-7c5d-45e4-9e90-7dd48f2c295c)
 
 _Testing the `/ask` endpoint with query "What should I do when I want to resign?" - Returns comprehensive resignation steps from the LLM._
 
