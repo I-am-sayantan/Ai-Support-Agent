@@ -7,11 +7,14 @@ env:
   AZURE_WEBAPP_NAME: ai-support-agent
 
 jobs:
-  build-and-deploy:
+  build:
+    name: Build Docker Image
     runs-on: ubuntu-latest
     permissions:
       contents: read
       packages: write
+    outputs:
+      image: ${{ steps.repo.outputs.repo_lower }}
 
     steps:
       - name: Checkout code
@@ -39,6 +42,16 @@ jobs:
           tags: |
             ghcr.io/${{ steps.repo.outputs.repo_lower }}:latest
             ghcr.io/${{ steps.repo.outputs.repo_lower }}:${{ github.sha }}
+
+  deploy:
+    name: Deploy to Azure
+    needs: build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Convert repository name to lowercase
+        id: repo
+        run: echo "repo_lower=$(echo ${{ github.repository }} | tr '[:upper:]' '[:lower:]')" >> $GITHUB_OUTPUT
 
       - name: Deploy to Azure Web App
         uses: azure/webapps-deploy@v2
