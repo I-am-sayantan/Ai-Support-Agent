@@ -19,69 +19,187 @@ An AI agent that answers questions using either direct LLM knowledge or retrieve
 
 ## 🏗️ Architecture
 
-### System Architecture Diagram
+### Simple Architecture Overview
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│                            CLIENT                                   │
+│                   (Web, Mobile, curl, etc.)                         │
+└────────────────────────────┬────────────────────────────────────────┘
+                             │
+                    POST /ask {query, session_id}
+                             │
+                             ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│                      FASTAPI SERVER (api.py)                        │
+│  ┌───────────────────────────────────────────────────────────────┐  │
+│  │ 1. Receive Request                                            │  │
+│  │ 2. Get/Create Session → Each session has its own RAG Agent    │  │
+│  │ 3. Pass query to Agent                                        │  │
+│  └───────────────────────────────────────────────────────────────┘  │
+└────────────────────────────┬────────────────────────────────────────┘
+                             │
+                             ▼
+┌────────────────────────────────────────────────────────────────────┐
+│                      RAG AGENT (api.py)                            │
+│  ┌────────────────────────────────────────────────────────────┐    │
+│  │ Process Query with Conversation History                    │    │ └───────────────────────────────────────────────────────────────┘    │
+│                             │                                      │
+│                             ▼                                      │
+│              ┌──────────────────────────────┐                      │
+│              │  Azure OpenAI GPT-4o-mini    │                      │
+│              │  (Function Calling Enabled)  │                      │
+│              └──────────────┬───────────────┘                      │
+│                             │                                      │
+│              ┌──────────────┴──────────────┐                       │
+│              │                             │                       │
+│              ▼                             ▼                       │
+│      ┌─────────────┐              ┌───────────────┐                │
+│      │   General   │              │  Company Info │                │
+│      │   Question  │              │    Question   │                │
+│      │             │              │               │                │
+│      │ "What is    │              │ "How many     │                │
+│      │  Python?"   │              │  remote days?"│                │
+│      └──────┬──────┘              └───────┬───────┘                │
+│             │                             │                        │
+│             │                             │ Call Tool:             │
+│             │                             │ search_documents()     │
+│             │                             │                        │
+└─────────────┼─────────────────────────────┼────────────────────────┘
+              │                             │
+              │                             ▼
+              │              ┌──────────────────────────────────────┐
+              │              │   RAG SYSTEM (rag_system.py)         │
+              │              │  ┌────────────────────────────────┐  │
+              │              │  │ 1. Convert query → embedding   │  │
+              │              │  │    (text-embedding-3-large)    │  │
+              │              │  │                                │  │
+              │              │  │ 2. Search FAISS Vector Store   │  │
+              │              │  │    (3072-dim, L2 similarity)   │  │
+              │              │  │                                │  │
+              │              │  │ 3. Return top 3 chunks         │  │
+              │              │  │    with source files           │  │
+              │              │  └────────────────────────────────┘  │
+              │              └──────────────┬───────────────────────┘
+              │                             │
+              │                             │ Document chunks
+              │                             │ as context
+              │              ┌──────────────┴──────────────┐
+              │              │                             │
+              │              ▼                             │
+              │       ┌─────────────────────────┐          │
+              │       │   Azure OpenAI GPT-4o   │          │
+              │       │   Generate answer with  │          │
+              │       │   retrieved context     │          │
+              │       └─────────────┬───────────┘          │
+              │                     │                      │
+              ▼                     ▼                      │
+        Direct Answer         Answer + Sources             │
+              │                     │                      │
+              └──────────┬──────────┘                      │
+                         │                                 │
+                         ▼                                 │
+              ┌────────────────────┐                       │
+              │  Response to API   │                       │
+              └──────────┬─────────┘                       │
+                         │                                 │
+                         ▼                                 │
+              ┌────────────────────────────────┐           │
+              │ {                              │           │
+              │   "answer": "...",             │           │
+              │   "source": "llm|documents",   │           │
+              │   "session_id": "..."          │           │
+              │ }                              │           │
+              └────────────────────────────────┘           │
+                                                           │
+DATA STORAGE:                                              │
+┌──────────────────┐  ┌─────────────────┐                  │
+│   documents/     │  │   rag_index/    │◄─────────────────┘
+│ - policies.txt   │  │ - index.faiss   │  Built from docs
+│ - handbook.txt   │  │ - chunks.pkl    │  13 chunks total
+│ - faq.txt        │  │ - metadata.pkl  │
+│ - security.txt   │  └─────────────────┘
+│ - technical.txt  │
+└──────────────────┘
+```
+
+**Key Points:**
+
+- **2 Paths**: Direct LLM answer OR Document search via RAG
+- **Smart Routing**: AI automatically decides which path to use
+- **Session Memory**: Each session maintains its own conversation history
+- **Source Tracking**: Know if answer came from LLM knowledge or documents
+
+---
+
+### Detailed Mermaid Diagrams
+
+> **Note**: Install the [Mermaid extension](https://marketplace.visualstudio.com/items?itemName=bierner.markdown-mermaid) in VS Code to see these diagrams rendered, or view on GitHub.
+
+#### System Architecture Diagram
 
 ```mermaid
+%%{init: {'theme':'neutral'}}%%
 graph TB
     Client[Client Application]
-    
+
     subgraph FastAPI["FastAPI Server (api.py)"]
         Router[API Router]
         SessionMgr[Session Manager]
     end
-    
+
     subgraph Agent["RAG Agent"]
         QueryProcessor[Query Processor]
         ToolDecision{Tool Calling Decision}
         DirectAnswer[Direct LLM Answer]
         DocSearch[Document Search Tool]
     end
-    
+
     subgraph RAGSystem["RAG System (rag_system.py)"]
         Chunker[Document Chunker<br/>500 words, 50 overlap]
         Embedder[Embedding Generator<br/>text-embedding-3-large]
         FAISS[(FAISS Vector Store<br/>3072-dim, L2 distance)]
         SearchEngine[Semantic Search<br/>Top-K Retrieval]
     end
-    
+
     subgraph Azure["Azure OpenAI Services"]
         ChatGPT[GPT-4o-mini<br/>Chat Completions]
         EmbedAPI[text-embedding-3-large<br/>Embeddings API]
     end
-    
+
     subgraph Storage["Data Storage"]
         Docs[documents/<br/>5 .txt files]
         Index[rag_index/<br/>FAISS Index]
         Sessions[In-Memory<br/>Session Store]
     end
-    
+
     Client -->|POST /ask| Router
     Router --> SessionMgr
     SessionMgr --> QueryProcessor
     QueryProcessor --> ToolDecision
-    
+
     ToolDecision -->|General Query| DirectAnswer
     ToolDecision -->|Company Info| DocSearch
-    
+
     DirectAnswer --> ChatGPT
     DocSearch --> SearchEngine
-    
+
     SearchEngine --> FAISS
     FAISS --> SearchEngine
     SearchEngine -->|Top 3 Chunks| ChatGPT
-    
+
     ChatGPT -->|Final Answer| QueryProcessor
     QueryProcessor -->|Response| Router
     Router -->|JSON Response| Client
-    
+
     Docs -.->|Build Index| Chunker
     Chunker --> Embedder
     Embedder --> EmbedAPI
     EmbedAPI -->|3072-dim vectors| FAISS
     FAISS -.->|Persist| Index
-    
+
     SessionMgr -.->|Store| Sessions
-    
+
     style Client fill:#e1f5ff
     style ChatGPT fill:#fff4e1
     style EmbedAPI fill:#fff4e1
@@ -93,6 +211,7 @@ graph TB
 ### Data Flow Diagram
 
 ```mermaid
+%%{init: {'theme':'neutral'}}%%
 sequenceDiagram
     participant C as Client
     participant API as FastAPI Server
@@ -101,18 +220,18 @@ sequenceDiagram
     participant RAG as RAG System
     participant FAISS as Vector Store
     participant Embed as Embedding API
-    
+
     Note over C,Embed: Initialization Phase
     RAG->>FAISS: Load Index from Disk
-    
+
     Note over C,Embed: Query Processing
     C->>API: POST /ask {query, session_id}
     API->>Agent: Get/Create Session Agent
     Agent->>Agent: Add to Conversation History
-    
+
     Agent->>LLM: Chat Completion + Tools
     LLM->>LLM: Analyze Query
-    
+
     alt General Knowledge Query
         LLM-->>Agent: Direct Answer
         Agent->>API: Return Answer
@@ -131,13 +250,14 @@ sequenceDiagram
         Agent->>API: Return Answer
         API->>C: {answer, source: "documents"}
     end
-    
+
     Note over C,Embed: Session Memory Maintained
 ```
 
 ### Component Architecture
 
 ```mermaid
+%%{init: {'theme':'neutral'}}%%
 graph LR
     subgraph API["api.py - 300 LOC"]
         FA[FastAPI App]
@@ -145,30 +265,30 @@ graph LR
         Endpoints[6 API Endpoints]
         AgentClass[RAGAgent Class]
     end
-    
+
     subgraph RAG["rag_system.py - 280 LOC"]
         DC[DocumentChunker]
         EG[EmbeddingGenerator]
         VS[FAISSVectorStore]
         RS[RAGSystem]
     end
-    
+
     subgraph Ext["External Services"]
         AZ[Azure OpenAI]
         FS[File System]
     end
-    
+
     FA --> AgentClass
     AgentClass --> RS
     RS --> DC
     RS --> EG
     RS --> VS
-    
+
     EG --> AZ
     AgentClass --> AZ
     VS --> FS
     DC --> FS
-    
+
     style API fill:#e3f2fd
     style RAG fill:#f3e5f5
     style Ext fill:#fff3e0
