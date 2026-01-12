@@ -43,8 +43,8 @@ An AI agent that answers questions using either direct LLM knowledge or retrieve
 ┌────────────────────────────────────────────────────────────────────┐
 │                      RAG AGENT (api.py)                            │
 │  ┌────────────────────────────────────────────────────────────┐    │
-│  │ Process Query with Conversation History                    │    │ └───────────────────────────────────────────────────────────────┘    │
-│                             │                                      │
+│  │ Process Query with Conversation History                    │    │
+│  └────────────────────────────────────────────────────────────┘    │
 │                             ▼                                      │
 │              ┌──────────────────────────────┐                      │
 │              │  Azure OpenAI GPT-4o-mini    │                      │
