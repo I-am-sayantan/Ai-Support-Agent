@@ -1,8 +1,20 @@
+# Core Dependencies
 openai>=1.12.0
 python-dotenv>=1.0.0
 faiss-cpu>=1.7.4
 numpy>=1.24.0
+
+# FastAPI and Server
 fastapi>=0.109.0
-uvicorn>=0.27.0
-requests>=2.31.0
+uvicorn[standard]>=0.27.0
 pydantic>=2.0.0
+
+# HTTP Client
+requests>=2.31.0
+
+# Azure Monitor (for logging and monitoring)
+opencensus-ext-azure>=1.1.9
+azure-monitor-opentelemetry>=1.2.0
+
+# Production Server
+gunicorn>=21.2.0

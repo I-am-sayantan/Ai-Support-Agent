@@ -3,7 +3,7 @@ AI Support Agent - FastAPI Backend with RAG
 Simple, self-contained API server
 """
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import Optional, List, Dict
@@ -13,9 +13,15 @@ from datetime import datetime
 from dotenv import load_dotenv
 from openai import AzureOpenAI
 from rag_system import RAGSystem
+from logging_config import setup_logging, get_logger
+import time
 
 # Load environment variables
 load_dotenv()
+
+# Setup logging
+setup_logging()
+logger = get_logger(__name__)
 
 # Initialize FastAPI
 app = FastAPI(
@@ -33,6 +39,29 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Request logging middleware
+@app.middleware("http")
+async def log_requests(request: Request, call_next):
+    start_time = time.time()
+    
+    # Log request
+    logger.info(f"Request: {request.method} {request.url.path}")
+    
+    try:
+        response = await call_next(request)
+        
+        # Log response
+        duration = time.time() - start_time
+        logger.info(
+            f"Response: {request.method} {request.url.path} "
+            f"Status: {response.status_code} Duration: {duration:.2f}s"
+        )
+        
+        return response
+    except Exception as e:
+        logger.error(f"Request failed: {request.method} {request.url.path} Error: {str(e)}")
+        raise
+
 # Session storage
 sessions: Dict[str, Dict] = {}
 
@@ -44,6 +73,7 @@ def get_rag_system() -> RAGSystem:
     """Get or create RAG system instance"""
     global rag_system
     if rag_system is None:
+        logger.info("Initializing RAG system")
         rag_system = RAGSystem(
             api_key=os.getenv("AZURE_OPENAI_API_KEY"),
             azure_endpoint=os.getenv("AZURE_OPENAI_ENDPOINT"),
@@ -52,7 +82,10 @@ def get_rag_system() -> RAGSystem:
         )
         # Load existing index
         if os.path.exists("rag_index"):
+            logger.info("Loading existing RAG index")
             rag_system.load_index("rag_index")
+        else:
+            logger.warning("RAG index not found")
     return rag_system
 
 
@@ -92,7 +125,7 @@ class RAGAgent:
     
     def search_documents(self, query: str) -> str:
         """Search documents using RAG"""
-        results = self.rag_system.search(query, top_k=3)
+        results = self.rag_system.retrieve(query, k=3)
         
         if not results:
             return "No relevant documents found."
@@ -101,7 +134,7 @@ class RAGAgent:
         formatted = []
         for i, result in enumerate(results, 1):
             formatted.append(
-                f"{i}. [Source: {result['metadata']['source']}]\n{result['chunk'][:300]}..."
+                f"{i}. [Source: {result['source']}]\n{result['text'][:300]}..."
             )
         
         return "\n\n".join(formatted)
@@ -208,6 +241,7 @@ class AskResponse(BaseModel):
 @app.get("/")
 async def root():
     """Root endpoint"""
+    logger.info("Root endpoint accessed")
     return {
         "message": "AI Support Agent API",
         "version": "1.0.0",
@@ -230,10 +264,13 @@ async def health():
 async def ask(request: AskRequest):
     """Ask a question"""
     try:
+        logger.info(f"Processing query - Session: {request.session_id}, Query length: {len(request.query)}")
+        
         # Get or create session
         session_id = request.session_id or str(uuid.uuid4())
         
         if session_id not in sessions:
+            logger.info(f"Creating new session: {session_id}")
             sessions[session_id] = {
                 "agent": RAGAgent(),
                 "created_at": datetime.now().isoformat()
@@ -250,12 +287,15 @@ async def ask(request: AskRequest):
                 source = "documents"
                 break
         
+        logger.info(f"Query processed successfully - Session: {session_id}, Source: {source}")
+        
         return {
             "answer": answer,
             "source": source,
             "session_id": session_id
         }
     except Exception as e:
+        logger.error(f"Error processing query: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -281,6 +321,7 @@ async def delete_session(session_id: str):
 async def rebuild_index():
     """Rebuild RAG index"""
     try:
+        logger.info("Starting RAG index rebuild")
         global rag_system
         rag_system = RAGSystem(
             api_key=os.getenv("AZURE_OPENAI_API_KEY"),
@@ -289,22 +330,21 @@ async def rebuild_index():
             api_version=os.getenv("AZURE_OPENAI_API_VERSION", "2024-12-01-preview")
         )
         
-        # Build index
-        documents = {}
+        # Build index from documents directory
         docs_dir = "documents"
-        for filename in os.listdir(docs_dir):
-            if filename.endswith('.txt'):
-                with open(os.path.join(docs_dir, filename), 'r', encoding='utf-8') as f:
-                    documents[filename] = f.read()
-        
-        rag_system.build_index(documents)
+        logger.info(f"Processing documents from {docs_dir}")
+        results = rag_system.process_documents_from_directory(docs_dir)
+        logger.info(f"Processed {len(results)} documents")
         rag_system.save_index("rag_index")
         
+        logger.info("RAG index rebuilt successfully")
         return {"message": "Index rebuilt successfully"}
     except Exception as e:
+        logger.error(f"Error rebuilding index: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 
 if __name__ == "__main__":
     import uvicorn
+    logger.info("Starting FastAPI application")
     uvicorn.run(app, host="0.0.0.0", port=8000)
