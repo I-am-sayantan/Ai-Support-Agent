@@ -72,7 +72,9 @@ jobs:
               --name ${{ env.AZURE_WEBAPP_NAME }} \
               --resource-group rg-ai-support-agent \
               --container-image-name ghcr.io/${{ steps.repo.outputs.repo_lower }}:latest \
-              --container-registry-url https://ghcr.io
+              --container-registry-url https://ghcr.io \
+              --container-registry-user ${{ github.actor }} \
+              --container-registry-password ${{ secrets.GHCR_PAT }}
 
             az webapp restart --name ${{ env.AZURE_WEBAPP_NAME }} --resource-group rg-ai-support-agent
 
