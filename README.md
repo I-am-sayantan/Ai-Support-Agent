@@ -132,8 +132,6 @@ DATA STORAGE:                                              │
 
 ---
 
-
-
 ### How It Works
 
 1. **Client** sends a question via REST API (`POST /ask`)
@@ -479,5 +477,290 @@ Edit `api.py` to modify:
 - Session Storage: In-memory dictionary
 - Response Format: JSON with answer, source, session_id
 - Documentation: Auto-generated Swagger UI at `/docs`
+
+---
+
+### Task 4: Azure Deployment ✅
+
+**Objective**: Deploy the AI Support Agent to Azure App Service with Docker containerization and CI/CD pipeline
+
+#### 4.1 Docker Containerization
+
+**Files Created**:
+
+- ✅ **`Dockerfile`** - Multi-stage production build:
+  - Base image: Python 3.11 slim
+  - Non-root user for security
+  - Health check endpoint configured
+  - Exposed port: 8000
+- ✅ **`docker-compose.yml`** - Local development setup:
+
+  - Volume mounts for documents and rag_index
+  - Environment variable configuration
+  - Port mapping 8000:8000
+
+- ✅ **`.dockerignore`** - Excludes unnecessary files:
+  - `__pycache__/`, `.git/`, `.env`
+  - Reduces image size and protects secrets
+
+**Docker Commands**:
+
+```bash
+# Build image locally
+docker build -t ai-support-agent .
+
+# Run container locally
+docker-compose up -d
+
+# Test locally
+curl http://localhost:8000/health
+```
+
+---
+
+#### 4.2 Azure Infrastructure Setup
+
+**Azure Resources Created**:
+
+| Resource         | Name                   | Configuration                        |
+| ---------------- | ---------------------- | ------------------------------------ |
+| Resource Group   | `rg-ai-support-agent`  | Central India region                 |
+| App Service Plan | `asp-ai-support-agent` | Linux, B1 tier                       |
+| Web App          | `ai-support-agent`     | Container deployment                 |
+| Azure OpenAI     | (existing)             | GPT-4o-mini + text-embedding-3-large |
+
+**App Service Configuration**:
+
+- Container: Linux-based App Service
+- Deployment: Docker container from GitHub Container Registry
+- Startup: Uvicorn with port 8000
+- Always On: Enabled for production
+
+---
+
+#### 4.3 GitHub Actions CI/CD Pipeline
+
+**Workflow File**: `.github/workflows/azure-deploy.yml`
+
+**Pipeline Architecture**:
+
+```
+┌─────────────────┐     ┌─────────────────┐
+│   BUILD JOB     │────▶│   DEPLOY JOB    │
+│                 │     │                 │
+│ • Checkout code │     │ • Azure Login   │
+│ • Build Docker  │     │ • Set Env Vars  │
+│ • Push to GHCR  │     │ • Deploy Image  │
+└─────────────────┘     │ • Restart App   │
+                        └─────────────────┘
+```
+
+**Build Job Steps**:
+
+1. **Checkout code** - Clone repository
+2. **Setup Docker Buildx** - Multi-platform build support
+3. **Login to GHCR** - Authenticate with GitHub Container Registry
+4. **Build & Push** - Create Docker image and push to `ghcr.io/<username>/ai-support-agent:latest`
+
+**Deploy Job Steps**:
+
+1. **Azure Login (OIDC)** - Secure passwordless authentication
+2. **Configure App Settings** - Set environment variables
+3. **Deploy Container** - Update Web App with new image
+4. **Restart App** - Apply changes
+
+**Trigger**: Manual dispatch (`workflow_dispatch`) - prevents accidental deployments
+
+---
+
+#### 4.4 Authentication: OIDC with Azure AD
+
+**Why OIDC?**
+
+- No secrets stored in GitHub (more secure)
+- Token-based, short-lived credentials
+- Microsoft recommended approach
+
+**Azure AD Setup**:
+
+1. **App Registration Created**: `github-actions-ai-support`
+
+   - Application (client) ID configured
+   - Tenant ID configured
+
+2. **Federated Credential Added**:
+
+   - Issuer: `https://token.actions.githubusercontent.com`
+   - Subject: `repo:<username>/Ai-Support-Agent:environment:production`
+   - Audience: `api://AzureADTokenExchange`
+
+3. **RBAC Role Assignment**:
+   - Role: `Contributor`
+   - Scope: Resource Group `rg-ai-support-agent`
+   - Assigned to: App Registration service principal
+
+**How It Works**:
+
+```
+GitHub Actions                    Azure AD                    Azure
+     │                               │                          │
+     │ 1. Request OIDC token         │                          │
+     │──────────────────────────────▶│                          │
+     │                               │                          │
+     │ 2. Validate federated         │                          │
+     │    credential                 │                          │
+     │◀──────────────────────────────│                          │
+     │                               │                          │
+     │ 3. Exchange for Azure token   │                          │
+     │──────────────────────────────────────────────────────────▶│
+     │                               │                          │
+     │ 4. Access granted             │                          │
+     │◀──────────────────────────────────────────────────────────│
+```
+
+---
+
+#### 4.5 Private Container Registry Authentication
+
+**Problem**: Azure couldn't pull private Docker images from GHCR
+
+**Solution**: Personal Access Token (PAT) authentication
+
+1. **GitHub PAT Created**:
+
+   - Scope: `read:packages` only (least privilege)
+   - Used by Azure to pull private container images
+
+2. **Azure CLI Configuration**:
+   ```bash
+   az webapp config container set \
+     --container-registry-user <github-username> \
+     --container-registry-password <PAT>
+   ```
+
+---
+
+#### 4.6 Environment Variables Configuration
+
+**Secrets Stored in GitHub** (Settings → Secrets → Actions):
+
+| Secret Name                         | Purpose                         |
+| ----------------------------------- | ------------------------------- |
+| `AZURE_CLIENT_ID`                   | App Registration ID for OIDC    |
+| `AZURE_TENANT_ID`                   | Azure AD Tenant ID              |
+| `AZURE_SUBSCRIPTION_ID`             | Azure Subscription ID           |
+| `GHCR_PAT`                          | GitHub PAT for private registry |
+| `AZURE_OPENAI_API_KEY`              | Azure OpenAI API key            |
+| `AZURE_OPENAI_ENDPOINT`             | Azure OpenAI endpoint URL       |
+| `AZURE_OPENAI_DEPLOYMENT`           | Chat model deployment name      |
+| `AZURE_OPENAI_EMBEDDING_DEPLOYMENT` | Embedding model deployment name |
+
+**App Settings Configured in Azure**:
+
+- All OpenAI credentials set via `az webapp config appsettings set`
+- `WEBSITES_PORT=8000` for container port binding
+
+---
+
+#### 4.7 GitHub Environment: Production
+
+**Purpose**: Track deployments and optionally require approval
+
+**Configuration**:
+
+- Environment name: `production`
+- URL: Links to deployed application
+- Protection rules: Optional (reviewers, wait timer)
+
+**Benefits**:
+
+- Deployment history tracking
+- Visual deployment status in GitHub
+- Optional approval gates before production deployment
+
+---
+
+#### 4.8 Deployment Flow Summary
+
+```
+Developer                GitHub                    Azure
+    │                       │                        │
+    │ 1. Push code          │                        │
+    │──────────────────────▶│                        │
+    │                       │                        │
+    │ 2. Trigger workflow   │                        │
+    │   (manual dispatch)   │                        │
+    │──────────────────────▶│                        │
+    │                       │                        │
+    │                       │ 3. Build Docker image  │
+    │                       │──────────┐             │
+    │                       │          │             │
+    │                       │◀─────────┘             │
+    │                       │                        │
+    │                       │ 4. Push to GHCR       │
+    │                       │──────────┐             │
+    │                       │          │             │
+    │                       │◀─────────┘             │
+    │                       │                        │
+    │                       │ 5. OIDC Login          │
+    │                       │───────────────────────▶│
+    │                       │                        │
+    │                       │ 6. Set env vars        │
+    │                       │───────────────────────▶│
+    │                       │                        │
+    │                       │ 7. Deploy container    │
+    │                       │───────────────────────▶│
+    │                       │                        │
+    │                       │ 8. Restart app         │
+    │                       │───────────────────────▶│
+    │                       │                        │
+    │ 9. App live! 🚀       │                        │
+    │◀──────────────────────────────────────────────│
+```
+
+---
+
+#### 4.9 Live Application URLs
+
+| Endpoint         | URL                                           |
+| ---------------- | --------------------------------------------- |
+| **Application**  | `https://<app-name>.azurewebsites.net`        |
+| **API Docs**     | `https://<app-name>.azurewebsites.net/docs`   |
+| **Health Check** | `https://<app-name>.azurewebsites.net/health` |
+
+---
+
+#### 4.10 Troubleshooting Guide
+
+| Issue                 | Cause                                | Solution                                         |
+| --------------------- | ------------------------------------ | ------------------------------------------------ |
+| `ImagePullFailure`    | Private registry, no credentials     | Add `GHCR_PAT` secret and registry auth          |
+| `AuthorizationFailed` | Wrong resource group or missing role | Verify resource group name, add Contributor role |
+| `Container timeout`   | App taking too long to start         | Increase startup timeout in Azure                |
+| `Port binding error`  | Wrong port configuration             | Set `WEBSITES_PORT=8000`                         |
+| `OIDC login failed`   | Wrong federated credential subject   | Check repo name, branch, environment in subject  |
+
+---
+
+#### 4.11 Files Created for Deployment
+
+```
+Ai-Support-Agent/
+├── Dockerfile                          # Multi-stage Docker build
+├── docker-compose.yml                  # Local development
+├── .dockerignore                       # Exclude files from image
+├── .github/
+│   └── workflows/
+│       └── azure-deploy.yml            # CI/CD pipeline
+└── README.md                           # This documentation
+```
+
+**Technical Details**:
+
+- Container Registry: GitHub Container Registry (ghcr.io)
+- Authentication: OIDC (OpenID Connect) with Azure AD
+- Deployment Target: Azure App Service (Linux Container)
+- CI/CD: GitHub Actions with manual trigger
+- Environment: Production with deployment tracking
 
 ---

@@ -47,9 +47,6 @@ jobs:
     name: Deploy to Azure
     needs: build
     runs-on: ubuntu-latest
-    environment:
-      name: production
-      url: https://ai-support-agent-f3fng7bdd6h9dqed.centralindia-01.azurewebsites.net
     permissions:
       id-token: write
       contents: read
