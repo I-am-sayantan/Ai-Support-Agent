@@ -60,59 +60,6 @@ jobs:
           publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
           images: ghcr.io/${{ steps.repo.outputs.repo_lower }}:latest
 
-      - name: Azure Login (using publish profile credentials)
-        uses: azure/login@v1
-        with:
-          publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
-
-      - name: Set Environment Variables
-        uses: azure/appservice-settings@v1
-        with:
-          app-name: ${{ env.AZURE_WEBAPP_NAME }}
-          app-settings-json: |
-            [
-              {
-                "name": "AZURE_OPENAI_API_KEY",
-                "value": "${{ secrets.AZURE_OPENAI_API_KEY }}",
-                "slotSetting": false
-              },
-              {
-                "name": "AZURE_OPENAI_ENDPOINT",
-                "value": "${{ secrets.AZURE_OPENAI_ENDPOINT }}",
-                "slotSetting": false
-              },
-              {
-                "name": "AZURE_OPENAI_DEPLOYMENT",
-                "value": "${{ secrets.AZURE_OPENAI_DEPLOYMENT }}",
-                "slotSetting": false
-              },
-              {
-                "name": "AZURE_OPENAI_EMBEDDING_DEPLOYMENT",
-                "value": "${{ secrets.AZURE_OPENAI_EMBEDDING_DEPLOYMENT }}",
-                "slotSetting": false
-              },
-              {
-                "name": "AZURE_OPENAI_API_VERSION",
-                "value": "2024-12-01-preview",
-                "slotSetting": false
-              },
-              {
-                "name": "PORT",
-                "value": "8000",
-                "slotSetting": false
-              },
-              {
-                "name": "WEBSITES_PORT",
-                "value": "8000",
-                "slotSetting": false
-              },
-              {
-                "name": "WEBSITES_ENABLE_APP_SERVICE_STORAGE",
-                "value": "false",
-                "slotSetting": false
-              }
-            ]
-
       - name: Deployment Complete
         run: |
           echo "✅ Deployment successful!"
