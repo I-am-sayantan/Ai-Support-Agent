@@ -70,11 +70,11 @@ jobs:
           inlineScript: |
             az webapp config container set \
               --name ${{ env.AZURE_WEBAPP_NAME }} \
-              --resource-group ai-support-agent \
-              --docker-custom-image-name ghcr.io/${{ steps.repo.outputs.repo_lower }}:latest \
-              --docker-registry-server-url https://ghcr.io
+              --resource-group rg-ai-support-agent \
+              --container-image-name ghcr.io/${{ steps.repo.outputs.repo_lower }}:latest \
+              --container-registry-url https://ghcr.io
 
-            az webapp restart --name ${{ env.AZURE_WEBAPP_NAME }} --resource-group ai-support-agent
+            az webapp restart --name ${{ env.AZURE_WEBAPP_NAME }} --resource-group rg-ai-support-agent
 
       - name: Deployment Complete
         run: |
