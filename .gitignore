@@ -57,7 +57,7 @@ htmlcov/
 # OS
 Thumbs.db
 .DS_Store
-.bat
+*.bat
 
 # Temporary files
 *.tmp
